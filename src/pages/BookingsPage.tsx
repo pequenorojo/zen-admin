@@ -5,13 +5,15 @@ import type { Booking, BookingStatus } from '@/types/booking'
 import { apiFetch } from '@/lib/api'
 import { useStore } from '@/context/StoreContext'
 import { BookingFilters } from '@/components/bookings/BookingFilters'
-import { BookingTable } from '@/components/bookings/BookingTable'
+import { BookingList } from '@/components/bookings/BookingList'
+import { BookingDetailPanel } from '@/components/bookings/BookingDetailPanel'
 
 export function BookingsPage() {
   const { current: store } = useStore()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Booking | null>(null)
 
   const [search, setSearch] = useState('')
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
@@ -59,36 +61,61 @@ export function BookingsPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">預約管理</h1>
-        <p className="text-sm text-muted-foreground">
-          {loading ? '載入中…' : `共 ${filtered.length} 筆預約紀錄`}
-        </p>
+    <div className="flex h-full flex-col">
+      {/* Header + Filters */}
+      <div className="shrink-0 space-y-4 border-b px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">預約管理</h1>
+            <p className="text-sm text-muted-foreground">
+              {loading ? '載入中…' : `共 ${filtered.length} 筆預約紀錄`}
+            </p>
+          </div>
+        </div>
+
+        <BookingFilters
+          search={search}
+          onSearchChange={setSearch}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          status={status}
+          onStatusChange={setStatus}
+          onClear={handleClear}
+          hasActiveFilters={hasActiveFilters}
+        />
+
+        {error && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
       </div>
 
-      {/* Filters */}
-      <BookingFilters
-        search={search}
-        onSearchChange={setSearch}
-        dateRange={dateRange}
-        onDateRangeChange={setDateRange}
-        status={status}
-        onStatusChange={setStatus}
-        onClear={handleClear}
-        hasActiveFilters={hasActiveFilters}
-      />
-
-      {/* Error */}
-      {error && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
+      {/* Master-Detail */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left: List */}
+        <div className="w-[480px] shrink-0 overflow-y-auto border-r">
+          <BookingList
+            bookings={filtered}
+            loading={loading}
+            selectedId={selected?.id ?? null}
+            onSelect={setSelected}
+          />
         </div>
-      )}
 
-      {/* Table */}
-      <BookingTable bookings={filtered} loading={loading} />
+        {/* Right: Detail */}
+        <div className="flex-1 overflow-y-auto">
+          {selected ? (
+            <div className="p-6">
+              <BookingDetailPanel booking={selected} />
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center text-muted-foreground">
+              <p>選擇一筆預約以查看詳情</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
