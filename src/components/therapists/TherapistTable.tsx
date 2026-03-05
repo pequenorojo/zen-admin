@@ -1,5 +1,5 @@
 import { Eye } from 'lucide-react'
-import type { Therapist } from '@/types/therapist'
+import type { Therapist, TherapistSchedule } from '@/types/therapist'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -9,6 +9,20 @@ import {
 } from '@/components/ui/tooltip'
 import { StatusDot } from './StatusIndicator'
 import { TierBadge } from './TierBadge'
+
+const DAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
+
+function formatTime(t: string) {
+  return t.slice(0, 5) // "17:00:00" → "17:00"
+}
+
+/** Find today's schedule; return start/end or null */
+function getTodaySchedule(schedules: TherapistSchedule[]): { start: string; end: string } | null {
+  const dow = new Date().getDay()
+  const s = schedules.find((s) => s.day_of_week === dow)
+  if (!s) return null
+  return { start: formatTime(s.start_time), end: formatTime(s.end_time) }
+}
 
 interface Props {
   therapists: Therapist[]
@@ -45,6 +59,9 @@ export function TherapistTable({ therapists, loading, onSelect }: Props) {
               <TableHead className="w-[50px] text-center">性別</TableHead>
               <TableHead className="w-[120px]">電話</TableHead>
               <TableHead>技能</TableHead>
+              <TableHead className="w-[80px] text-center">上班</TableHead>
+              <TableHead className="w-[80px] text-center">下班</TableHead>
+              <TableHead className="w-[70px] text-center">緩衝</TableHead>
               <TableHead className="w-[70px] text-center">等級</TableHead>
               <TableHead className="w-[60px] text-right">積分</TableHead>
               <TableHead className="w-[50px] text-right">評分</TableHead>
@@ -87,6 +104,21 @@ export function TherapistTable({ therapists, loading, onSelect }: Props) {
                       </TooltipContent>
                     </Tooltip>
                   )}
+                </TableCell>
+                <TableCell className="text-center tabular-nums text-sm">
+                  {(() => {
+                    const s = getTodaySchedule(t.schedules)
+                    return s ? s.start : <span className="text-muted-foreground">休</span>
+                  })()}
+                </TableCell>
+                <TableCell className="text-center tabular-nums text-sm">
+                  {(() => {
+                    const s = getTodaySchedule(t.schedules)
+                    return s ? s.end : <span className="text-muted-foreground">休</span>
+                  })()}
+                </TableCell>
+                <TableCell className="text-center tabular-nums text-sm">
+                  {t.personal_buffer_min != null ? `${t.personal_buffer_min}m` : '—'}
                 </TableCell>
                 <TableCell className="text-center">
                   <TierBadge tier={t.therapist_tier} />

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
-import { X, Phone, Award, Star, Zap, Calendar } from 'lucide-react'
+import { X, Phone, Award, Star, Zap, Calendar, Clock, Timer } from 'lucide-react'
 import type { Therapist, TherapistAppointment } from '@/types/therapist'
 import { apiFetch } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -117,6 +117,52 @@ export function TherapistDetailDrawer({ therapist: t, onClose }: Props) {
                     {s.name}
                   </span>
                 ))}
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* schedule & buffer */}
+          <div className="space-y-3">
+            <p className="text-sm font-medium">班表與緩衝</p>
+
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Timer className="h-3.5 w-3.5 shrink-0" />
+              緩衝時間：
+              <span className="font-medium text-foreground">
+                {t.personal_buffer_min != null ? `${t.personal_buffer_min} 分鐘` : '—'}
+              </span>
+            </div>
+
+            {t.schedules.length === 0 ? (
+              <p className="text-sm text-muted-foreground">無排班紀錄</p>
+            ) : (
+              <div className="grid grid-cols-7 gap-1.5">
+                {[0, 1, 2, 3, 4, 5, 6].map((dow) => {
+                  const s = t.schedules.find((sc) => sc.day_of_week === dow)
+                  const isToday = new Date().getDay() === dow
+                  return (
+                    <div
+                      key={dow}
+                      className={`rounded-md border px-2 py-1.5 text-center text-xs ${
+                        isToday ? 'border-primary bg-primary/5' : ''
+                      } ${!s ? 'opacity-40' : ''}`}
+                    >
+                      <p className={`font-medium ${isToday ? 'text-primary' : ''}`}>
+                        {['日', '一', '二', '三', '四', '五', '六'][dow]}
+                      </p>
+                      {s ? (
+                        <>
+                          <p className="tabular-nums">{s.start_time.slice(0, 5)}</p>
+                          <p className="tabular-nums">{s.end_time.slice(0, 5)}</p>
+                        </>
+                      ) : (
+                        <p className="text-muted-foreground">休</p>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

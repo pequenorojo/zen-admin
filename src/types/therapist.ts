@@ -7,6 +7,12 @@ export interface TherapistSkill {
   name: string
 }
 
+export interface TherapistSchedule {
+  day_of_week: number
+  start_time: string
+  end_time: string
+}
+
 export interface Therapist {
   id: string
   store_id: string
@@ -26,7 +32,9 @@ export interface Therapist {
   therapist_points: number
   therapist_tier: TherapistTier
   is_active: boolean
+  personal_buffer_min: number | null
   skills: TherapistSkill[]
+  schedules: TherapistSchedule[]
 }
 
 export interface TherapistAppointment {

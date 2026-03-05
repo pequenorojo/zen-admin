@@ -14,34 +14,33 @@ function fmt(iso: string | null) {
 }
 
 export function StoresPage() {
-  const { stores } = useStore()
-  const [statsMap, setStatsMap] = useState<Map<string, StoreStats>>(new Map())
+  const { current: store } = useStore()
+  const [stats, setStats] = useState<StoreStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!store) return
+    setLoading(true)
     apiFetch<StoreStats[]>('/api/stores/stats')
       .then((data) => {
-        const m = new Map<string, StoreStats>()
-        data.forEach((s) => m.set(s.id, s))
-        setStatsMap(m)
+        const match = data.find((s) => s.id === store.id)
+        setStats(match ?? null)
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [store])
+
+  if (!store) return null
 
   return (
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-xl font-semibold text-foreground">店舖管理</h1>
         <p className="text-sm text-muted-foreground">
-          共 {stores.length} 間店舖
+          {store.name} 的詳細資訊
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {stores.map((store) => (
-          <StoreCard key={store.id} store={store} stats={statsMap.get(store.id)} loading={loading} />
-        ))}
-      </div>
+      <StoreCard store={store} stats={stats ?? undefined} loading={loading} />
     </div>
   )
 }
