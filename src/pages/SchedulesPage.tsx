@@ -3,14 +3,13 @@ import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import { useStore } from '@/context/StoreContext'
 import { apiFetch } from '@/lib/api'
-import type { Therapist } from '@/types/therapist'
+import type { Therapist, CurrentStatus } from '@/types/therapist'
 import type {
   AttendanceRecord,
   QueuePosition,
   QueueZone,
   RosterTherapist,
   QueueTherapistCard,
-  AttendanceDisplayStatus,
 } from '@/types/schedule'
 import { ALL_ZONES } from '@/types/schedule'
 import { ScheduleCalendar } from '@/components/schedules/ScheduleCalendar'
@@ -18,16 +17,6 @@ import { RosterList } from '@/components/schedules/RosterList'
 import { QueueBoard } from '@/components/schedules/QueueBoard'
 
 type Positions = Record<QueueZone, string[]>
-
-function deriveAttendanceStatus(
-  record: AttendanceRecord | undefined,
-  therapist: Therapist,
-): AttendanceDisplayStatus {
-  if (record?.check_in_at && record?.check_out_at) return '下線'
-  if (record?.check_in_at && therapist.current_status === 'OFFLINE') return '下線'
-  if (therapist.current_status !== 'OFFLINE') return '已出勤'
-  return '尚未出勤'
-}
 
 export function SchedulesPage() {
   const { current: store } = useStore()
@@ -58,7 +47,6 @@ export function SchedulesPage() {
     } catch (e) {
       console.error('Failed to fetch schedule data:', e)
     }
-    // Queue positions fetched separately — may fail if table doesn't exist yet
     try {
       const queueRes = await apiFetch<QueuePosition[]>(`/api/queue/positions?store_id=${store.id}`)
       setQueuePositions(Array.isArray(queueRes) ? queueRes : [])
@@ -70,23 +58,32 @@ export function SchedulesPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // Build attendance map
-  const attendanceMap = useMemo(
-    () => new Map(attendance.map((a) => [a.therapist_id, a])),
-    [attendance],
-  )
+  // Compute assignments map: therapist_id → zone
+  const assignments = useMemo(() => {
+    const map = new Map<string, QueueZone>()
+    for (const zone of ALL_ZONES) {
+      for (const id of positions[zone]) {
+        map.set(id, zone)
+      }
+    }
+    return map
+  }, [positions])
 
-  // Build roster list
+  // Build roster list — attendance based on assignment
   const roster = useMemo<RosterTherapist[]>(
-    () => therapists.map((t) => ({
-      therapist_id: t.id,
-      therapist_name: t.name,
-      employee_no: t.employee_no,
-      gender: t.gender,
-      current_status: t.current_status,
-      attendance_status: deriveAttendanceStatus(attendanceMap.get(t.id), t),
-    })),
-    [therapists, attendanceMap],
+    () => therapists.map((t) => {
+      const isAssigned = assignments.has(t.id)
+      const isOffline = t.current_status === 'OFFLINE'
+      return {
+        therapist_id: t.id,
+        therapist_name: t.name,
+        employee_no: t.employee_no,
+        gender: t.gender,
+        current_status: t.current_status,
+        attendance_status: isOffline ? '下線' : isAssigned ? '已出勤' : '尚未出勤',
+      }
+    }),
+    [therapists, assignments],
   )
 
   // Build therapist map for queue board
@@ -116,7 +113,6 @@ export function SchedulesPage() {
       }
     }
 
-    // Sort each zone by position
     for (const zone of ALL_ZONES) {
       const zonePositions = queuePositions.filter((qp) => qp.zone === zone)
       const posMap = new Map(zonePositions.map((qp) => [qp.therapist_id, qp.position]))
@@ -126,31 +122,54 @@ export function SchedulesPage() {
     setPositions(newPositions)
   }, [queuePositions, therapistMap])
 
-  // Compute assignments map: therapist_id → zone
-  const assignments = useMemo(() => {
-    const map = new Map<string, QueueZone>()
-    for (const zone of ALL_ZONES) {
-      for (const id of positions[zone]) {
-        map.set(id, zone)
-      }
-    }
-    return map
-  }, [positions])
-
   // Handle assign/unassign from roster dropdown
   const handleAssign = (therapistId: string, zone: QueueZone | null) => {
-    const newPositions: Positions = { long: [], short: [], support: [], nail: [] }
-    // Copy and remove from all zones
-    for (const z of ALL_ZONES) {
-      newPositions[z] = positions[z].filter((id) => id !== therapistId)
+    const newPositions: Positions = {
+      long: positions.long.filter((id) => id !== therapistId),
+      short: positions.short.filter((id) => id !== therapistId),
+      support: positions.support.filter((id) => id !== therapistId),
+      nail: positions.nail.filter((id) => id !== therapistId),
     }
-    // Add to new zone (at end)
     if (zone) {
       newPositions[zone].push(therapistId)
     }
     setPositions(newPositions)
-    // Save to backend
     savePositions(newPositions)
+  }
+
+  // Handle remove from queue (back to unassigned)
+  const handleRemove = (therapistId: string) => {
+    handleAssign(therapistId, null)
+  }
+
+  // Handle status change on card
+  const handleStatusChange = async (therapistId: string, status: CurrentStatus) => {
+    // Optimistic update local state
+    setTherapists((prev) =>
+      prev.map((t) => t.id === therapistId ? { ...t, current_status: status } : t),
+    )
+
+    // If OFFLINE, remove from queue
+    if (status === 'OFFLINE') {
+      const newPositions: Positions = {
+        long: positions.long.filter((id) => id !== therapistId),
+        short: positions.short.filter((id) => id !== therapistId),
+        support: positions.support.filter((id) => id !== therapistId),
+        nail: positions.nail.filter((id) => id !== therapistId),
+      }
+      setPositions(newPositions)
+      savePositions(newPositions)
+    }
+
+    // Update backend
+    try {
+      await apiFetch(`/api/therapists/${therapistId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ current_status: status }),
+      })
+    } catch (e) {
+      console.error('Failed to update therapist status:', e)
+    }
   }
 
   const savePositions = async (pos: Positions) => {
@@ -214,6 +233,8 @@ export function SchedulesPage() {
               therapistMap={therapistMap}
               storeId={store.id}
               onPositionsChange={setPositions}
+              onRemove={handleRemove}
+              onStatusChange={handleStatusChange}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">

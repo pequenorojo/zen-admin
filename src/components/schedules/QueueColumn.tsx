@@ -1,5 +1,6 @@
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
+import type { CurrentStatus } from '@/types/therapist'
 import type { QueueZone, QueueTherapistCard } from '@/types/schedule'
 import { ZONE_LABELS } from '@/types/schedule'
 import { TherapistCard } from './TherapistCard'
@@ -10,9 +11,10 @@ interface Props {
   therapistIds: string[]
   therapistMap: Map<string, QueueTherapistCard>
   onRemove: (therapistId: string) => void
+  onStatusChange: (therapistId: string, status: CurrentStatus) => void
 }
 
-export function QueueColumn({ zone, therapistIds, therapistMap, onRemove }: Props) {
+export function QueueColumn({ zone, therapistIds, therapistMap, onRemove, onStatusChange }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: zone })
 
   return (
@@ -29,7 +31,7 @@ export function QueueColumn({ zone, therapistIds, therapistMap, onRemove }: Prop
       <div
         ref={setNodeRef}
         className={cn(
-          'flex items-center gap-2 overflow-x-auto rounded-lg border bg-muted/30 p-3 min-h-[52px] scrollbar-thin',
+          'flex items-center gap-2 overflow-x-auto rounded-lg border bg-muted/30 p-3 min-h-[48px] scrollbar-thin',
           isOver && 'ring-2 ring-primary/40 bg-primary/5',
         )}
       >
@@ -42,7 +44,13 @@ export function QueueColumn({ zone, therapistIds, therapistMap, onRemove }: Prop
             therapistIds.map((id, i) => {
               const t = therapistMap.get(id)
               return t ? (
-                <TherapistCard key={id} therapist={t} index={i} onRemove={onRemove} />
+                <TherapistCard
+                  key={id}
+                  therapist={t}
+                  index={i}
+                  onRemove={onRemove}
+                  onStatusChange={onStatusChange}
+                />
               ) : null
             })
           )}
