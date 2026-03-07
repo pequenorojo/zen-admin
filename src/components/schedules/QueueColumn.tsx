@@ -1,10 +1,8 @@
-import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
 import type { CurrentStatus } from '@/types/therapist'
 import type { QueueZone, QueueTherapistCard } from '@/types/schedule'
 import { ZONE_LABELS } from '@/types/schedule'
 import { TherapistCard } from './TherapistCard'
-import { cn } from '@/lib/utils'
 
 interface Props {
   zone: QueueZone
@@ -12,14 +10,12 @@ interface Props {
   therapistMap: Map<string, QueueTherapistCard>
   onRemove: (therapistId: string) => void
   onStatusChange: (therapistId: string, status: CurrentStatus) => void
+  onZoneChange: (therapistId: string, from: QueueZone, to: QueueZone) => void
 }
 
-export function QueueColumn({ zone, therapistIds, therapistMap, onRemove, onStatusChange }: Props) {
-  const { setNodeRef, isOver } = useDroppable({ id: zone })
-
+export function QueueColumn({ zone, therapistIds, therapistMap, onRemove, onStatusChange, onZoneChange }: Props) {
   return (
     <div className="space-y-2">
-      {/* Header */}
       <div className="flex items-center gap-2">
         <h3 className="text-sm font-semibold">{ZONE_LABELS[zone]}</h3>
         <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
@@ -27,14 +23,7 @@ export function QueueColumn({ zone, therapistIds, therapistMap, onRemove, onStat
         </span>
       </div>
 
-      {/* Horizontal scroll container */}
-      <div
-        ref={setNodeRef}
-        className={cn(
-          'flex items-center gap-2 overflow-x-auto rounded-lg border bg-muted/30 p-3 min-h-[48px] scrollbar-thin',
-          isOver && 'ring-2 ring-primary/40 bg-primary/5',
-        )}
-      >
+      <div className="flex items-center gap-2 overflow-x-auto rounded-lg border bg-muted/30 p-3 min-h-[48px] scrollbar-thin">
         <SortableContext items={therapistIds} strategy={horizontalListSortingStrategy}>
           {therapistIds.length === 0 ? (
             <p className="text-xs text-muted-foreground italic whitespace-nowrap">
@@ -48,8 +37,10 @@ export function QueueColumn({ zone, therapistIds, therapistMap, onRemove, onStat
                   key={id}
                   therapist={t}
                   index={i}
+                  currentZone={zone}
                   onRemove={onRemove}
                   onStatusChange={onStatusChange}
+                  onZoneChange={onZoneChange}
                 />
               ) : null
             })

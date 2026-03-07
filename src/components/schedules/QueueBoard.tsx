@@ -2,13 +2,12 @@ import { useState, useEffect, useRef } from 'react'
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  closestCenter,
   PointerSensor,
   useSensor,
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
-  type DragOverEvent,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import type { CurrentStatus } from '@/types/therapist'
@@ -27,19 +26,6 @@ interface Props {
   onPositionsChange: (p: Positions) => void
   onRemove: (therapistId: string) => void
   onStatusChange: (therapistId: string, status: CurrentStatus) => void
-}
-
-// Pure function — no closure dependency
-function findZoneIn(pos: Positions, id: string): QueueZone | null {
-  if (ALL_ZONES.includes(id as QueueZone)) return id as QueueZone
-  for (const zone of ALL_ZONES) {
-    if (pos[zone].includes(id)) return zone
-  }
-  return null
-}
-
-function clonePositions(pos: Positions): Positions {
-  return { long: [...pos.long], short: [...pos.short], support: [...pos.support], nail: [...pos.nail] }
 }
 
 export function QueueBoard({ positions, therapistMap, storeId, onPositionsChange, onRemove, onStatusChange }: Props) {
@@ -62,68 +48,44 @@ export function QueueBoard({ positions, therapistMap, storeId, onPositionsChange
     setActiveId(event.active.id as string)
   }
 
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-
-    setLocalPositions((prev) => {
-      const activeZone = findZoneIn(prev, active.id as string)
-      const overZone = findZoneIn(prev, over.id as string)
-
-      if (!activeZone || !overZone || activeZone === overZone) return prev
-
-      const next = clonePositions(prev)
-
-      // Remove from source
-      next[activeZone] = next[activeZone].filter((id) => id !== active.id)
-
-      // Insert at target position
-      const overIndex = next[overZone].indexOf(over.id as string)
-      if (overIndex >= 0) {
-        next[overZone].splice(overIndex, 0, active.id as string)
-      } else {
-        next[overZone].push(active.id as string)
-      }
-
-      return next
-    })
-  }
-
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     draggingRef.current = false
     setActiveId(null)
+    if (!over || active.id === over.id) return
 
-    if (!over || active.id === over.id) {
-      onPositionsChange(localPositions)
-      return
-    }
-
-    // Use functional update for same-zone reorder
+    // Find which zone both items are in
     setLocalPositions((prev) => {
-      const activeZone = findZoneIn(prev, active.id as string)
-      const overZone = findZoneIn(prev, over.id as string)
-
-      if (activeZone && overZone && activeZone === overZone) {
-        const items = [...prev[activeZone]]
+      for (const zone of ALL_ZONES) {
+        const items = prev[zone]
         const oldIndex = items.indexOf(active.id as string)
         const newIndex = items.indexOf(over.id as string)
-        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-          return { ...prev, [activeZone]: arrayMove(items, oldIndex, newIndex) }
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const reordered = arrayMove(items, oldIndex, newIndex)
+          const next = { ...prev, [zone]: reordered }
+          onPositionsChange(next)
+          savePositions(next)
+          return next
         }
       }
       return prev
     })
+  }
 
-    // Read latest state after update and sync
-    // Use setTimeout to ensure state is committed
-    setTimeout(() => {
-      setLocalPositions((final) => {
-        onPositionsChange(final)
-        savePositions(final)
-        return final
-      })
-    }, 0)
+  // Move card between zones via dropdown
+  const handleZoneChange = (therapistId: string, from: QueueZone, to: QueueZone) => {
+    if (from === to) return
+    const next: Positions = {
+      long: [...positions.long],
+      short: [...positions.short],
+      support: [...positions.support],
+      nail: [...positions.nail],
+    }
+    next[from] = next[from].filter((id) => id !== therapistId)
+    next[to].push(therapistId)
+    setLocalPositions(next)
+    onPositionsChange(next)
+    savePositions(next)
   }
 
   const savePositions = async (pos: Positions) => {
@@ -147,6 +109,9 @@ export function QueueBoard({ positions, therapistMap, storeId, onPositionsChange
   }
 
   const activeTherapist = activeId ? therapistMap.get(activeId) : null
+  const activeZone = activeId
+    ? ALL_ZONES.find((z) => localPositions[z].includes(activeId)) ?? 'long'
+    : 'long'
 
   return (
     <div className="space-y-4">
@@ -156,9 +121,8 @@ export function QueueBoard({ positions, therapistMap, storeId, onPositionsChange
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={closestCenter}
         onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
         <div className="space-y-3">
@@ -170,13 +134,19 @@ export function QueueBoard({ positions, therapistMap, storeId, onPositionsChange
               therapistMap={therapistMap}
               onRemove={onRemove}
               onStatusChange={onStatusChange}
+              onZoneChange={handleZoneChange}
             />
           ))}
         </div>
 
         <DragOverlay>
           {activeTherapist ? (
-            <TherapistCard therapist={activeTherapist} index={0} overlay />
+            <TherapistCard
+              therapist={activeTherapist}
+              index={0}
+              currentZone={activeZone as QueueZone}
+              overlay
+            />
           ) : null}
         </DragOverlay>
       </DndContext>

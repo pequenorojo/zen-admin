@@ -2,7 +2,8 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { X } from 'lucide-react'
 import type { CurrentStatus } from '@/types/therapist'
-import type { QueueTherapistCard } from '@/types/schedule'
+import type { QueueTherapistCard, QueueZone } from '@/types/schedule'
+import { ALL_ZONES, ZONE_LABELS } from '@/types/schedule'
 import { cn } from '@/lib/utils'
 
 const STATUS_BG: Record<CurrentStatus, string> = {
@@ -23,12 +24,14 @@ const GENDER_COLOR: Record<string, string> = {
 interface Props {
   therapist: QueueTherapistCard
   index: number
+  currentZone: QueueZone
   overlay?: boolean
   onRemove?: (id: string) => void
   onStatusChange?: (id: string, status: CurrentStatus) => void
+  onZoneChange?: (id: string, from: QueueZone, to: QueueZone) => void
 }
 
-export function TherapistCard({ therapist, index, overlay, onRemove, onStatusChange }: Props) {
+export function TherapistCard({ therapist, index, currentZone, overlay, onRemove, onStatusChange, onZoneChange }: Props) {
   const {
     attributes,
     listeners,
@@ -78,6 +81,18 @@ export function TherapistCard({ therapist, index, overlay, onRemove, onStatusCha
       >
         {therapist.employee_no ?? '—'}
       </span>
+      {onZoneChange && (
+        <select
+          value={currentZone}
+          onChange={(e) => onZoneChange(therapist.therapist_id, currentZone, e.target.value as QueueZone)}
+          className="h-4 w-8 rounded border-none bg-transparent text-[9px] text-muted-foreground cursor-pointer p-0 focus:outline-none"
+          title="切換列隊"
+        >
+          {ALL_ZONES.map((z) => (
+            <option key={z} value={z}>{ZONE_LABELS[z]}</option>
+          ))}
+        </select>
+      )}
       {onRemove && (
         <button
           onClick={() => onRemove(therapist.therapist_id)}
