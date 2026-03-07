@@ -23,7 +23,7 @@ export function QueueColumn({ zone, therapistIds, therapistMap, onRemove, onStat
         </span>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto rounded-lg border bg-muted/30 p-3 min-h-[48px] scrollbar-thin">
+      <div className="flex items-end gap-1.5 overflow-x-auto rounded-lg border bg-muted/30 p-2 min-h-[100px] scrollbar-thin">
         <SortableContext items={therapistIds} strategy={horizontalListSortingStrategy}>
           {therapistIds.length === 0 ? (
             <p className="text-xs text-muted-foreground italic whitespace-nowrap">

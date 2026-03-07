@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { X } from 'lucide-react'
+import { X, GripVertical } from 'lucide-react'
 import type { CurrentStatus } from '@/types/therapist'
 import type { QueueTherapistCard, QueueZone } from '@/types/schedule'
 import { ALL_ZONES, ZONE_LABELS } from '@/types/schedule'
@@ -14,7 +14,24 @@ const STATUS_BG: Record<CurrentStatus, string> = {
   OFFLINE: 'bg-gray-100 border-gray-300 opacity-50',
 }
 
-const STATUS_CYCLE: CurrentStatus[] = ['WHITE', 'YELLOW', 'GREEN', 'RED', 'OFFLINE']
+// 4 working statuses only — OFFLINE is handled by dedicated X button
+const STATUS_CYCLE: CurrentStatus[] = ['WHITE', 'YELLOW', 'GREEN', 'RED']
+
+const STATUS_LABEL: Record<CurrentStatus, string> = {
+  WHITE:   '待班',
+  YELLOW:  '等勞點',
+  GREEN:   '工作中',
+  RED:     '休息中',
+  OFFLINE: '離線',
+}
+
+const STATUS_DOT: Record<CurrentStatus, string> = {
+  WHITE:   'bg-gray-300',
+  YELLOW:  'bg-yellow-400',
+  GREEN:   'bg-green-500',
+  RED:     'bg-red-500',
+  OFFLINE: 'bg-gray-400',
+}
 
 const GENDER_COLOR: Record<string, string> = {
   '男': 'text-blue-600',
@@ -50,9 +67,15 @@ export function TherapistCard({ therapist, index, currentZone, overlay, onRemove
 
   const cycleStatus = () => {
     if (!onStatusChange) return
-    const i = STATUS_CYCLE.indexOf(therapist.current_status)
-    const next = STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length]
-    onStatusChange(therapist.therapist_id, next)
+    const currentIdx = STATUS_CYCLE.indexOf(therapist.current_status)
+    // If currently OFFLINE or not in cycle, start from WHITE
+    const nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % STATUS_CYCLE.length
+    onStatusChange(therapist.therapist_id, STATUS_CYCLE[nextIdx])
+  }
+
+  const goOffline = () => {
+    if (!onStatusChange) return
+    onStatusChange(therapist.therapist_id, 'OFFLINE')
   }
 
   return (
@@ -60,32 +83,33 @@ export function TherapistCard({ therapist, index, currentZone, overlay, onRemove
       ref={setNodeRef}
       style={style}
       className={cn(
-        'flex items-center gap-1 rounded-md border px-1.5 py-1 shadow-sm shrink-0 group',
+        'flex flex-col items-center rounded-lg border shadow-sm shrink-0 w-14 group relative',
         STATUS_BG[therapist.current_status],
         isDragging && 'opacity-40',
         overlay && 'shadow-lg ring-2 ring-primary/30',
       )}
     >
-      <span
+      {/* Drag handle */}
+      <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground text-[10px] leading-none"
+        className="w-full flex justify-center py-0.5 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
         title="拖拉排序"
       >
-        ⠿
-      </span>
-      <span
-        onClick={cycleStatus}
-        className={cn('font-bold text-xs cursor-pointer select-none', genderColor)}
-        title="點擊切換狀態"
-      >
+        <GripVertical className="h-3 w-3" />
+      </div>
+
+      {/* Employee number + gender color */}
+      <div className={cn('text-sm font-bold select-none leading-tight', genderColor)}>
         {therapist.employee_no ?? '—'}
-      </span>
+      </div>
+
+      {/* Zone dropdown */}
       {onZoneChange && (
         <select
           value={currentZone}
           onChange={(e) => onZoneChange(therapist.therapist_id, currentZone, e.target.value as QueueZone)}
-          className="h-4 w-8 rounded border-none bg-transparent text-[9px] text-muted-foreground cursor-pointer p-0 focus:outline-none"
+          className="w-11 h-4 rounded border-none bg-transparent text-[8px] text-muted-foreground cursor-pointer p-0 text-center focus:outline-none"
           title="切換列隊"
         >
           {ALL_ZONES.map((z) => (
@@ -93,13 +117,25 @@ export function TherapistCard({ therapist, index, currentZone, overlay, onRemove
           ))}
         </select>
       )}
+
+      {/* Status toggle button */}
+      <button
+        onClick={cycleStatus}
+        className="flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] leading-none text-muted-foreground hover:bg-black/5 transition-colors"
+        title="切換狀態"
+      >
+        <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', STATUS_DOT[therapist.current_status])} />
+        <span className="truncate">{STATUS_LABEL[therapist.current_status]}</span>
+      </button>
+
+      {/* Offline / remove button */}
       {onRemove && (
         <button
-          onClick={() => onRemove(therapist.therapist_id)}
-          className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-opacity"
-          title="移除"
+          onClick={goOffline}
+          className="w-full flex justify-center py-0.5 rounded-b-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+          title="離線"
         >
-          <X className="h-2.5 w-2.5" />
+          <X className="h-3 w-3" />
         </button>
       )}
     </div>
