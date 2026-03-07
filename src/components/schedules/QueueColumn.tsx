@@ -17,13 +17,13 @@ export function QueueColumn({ zone, therapistIds, therapistMap, onRemove, onStat
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold">{ZONE_LABELS[zone]}</h3>
-        <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
+        <h3 className="text-base font-semibold">{ZONE_LABELS[zone]}</h3>
+        <span className="rounded-full bg-secondary px-2.5 py-0.5 text-sm font-medium text-secondary-foreground">
           {therapistIds.length}
         </span>
       </div>
 
-      <div className="flex items-end gap-1.5 overflow-x-auto rounded-lg border bg-muted/30 p-2 min-h-[100px] scrollbar-thin">
+      <div className="flex items-end gap-2 overflow-x-auto rounded-lg border bg-muted/30 p-3 min-h-[140px] scrollbar-thin">
         <SortableContext items={therapistIds} strategy={horizontalListSortingStrategy}>
           {therapistIds.length === 0 ? (
             <p className="text-xs text-muted-foreground italic whitespace-nowrap">

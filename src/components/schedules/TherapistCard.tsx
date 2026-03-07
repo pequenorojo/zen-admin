@@ -83,7 +83,7 @@ export function TherapistCard({ therapist, index, currentZone, overlay, onRemove
       ref={setNodeRef}
       style={style}
       className={cn(
-        'flex flex-col items-center rounded-lg border shadow-sm shrink-0 w-14 group relative',
+        'flex flex-col items-center rounded-lg border-2 shadow-sm shrink-0 w-20 group relative',
         STATUS_BG[therapist.current_status],
         isDragging && 'opacity-40',
         overlay && 'shadow-lg ring-2 ring-primary/30',
@@ -93,14 +93,14 @@ export function TherapistCard({ therapist, index, currentZone, overlay, onRemove
       <div
         {...attributes}
         {...listeners}
-        className="w-full flex justify-center py-0.5 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+        className="w-full flex justify-center py-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
         title="拖拉排序"
       >
-        <GripVertical className="h-3 w-3" />
+        <GripVertical className="h-4 w-4" />
       </div>
 
       {/* Employee number + gender color */}
-      <div className={cn('text-sm font-bold select-none leading-tight', genderColor)}>
+      <div className={cn('text-xl font-bold select-none leading-tight py-1', genderColor)}>
         {therapist.employee_no ?? '—'}
       </div>
 
@@ -109,7 +109,7 @@ export function TherapistCard({ therapist, index, currentZone, overlay, onRemove
         <select
           value={currentZone}
           onChange={(e) => onZoneChange(therapist.therapist_id, currentZone, e.target.value as QueueZone)}
-          className="w-11 h-4 rounded border-none bg-transparent text-[8px] text-muted-foreground cursor-pointer p-0 text-center focus:outline-none"
+          className="w-16 h-5 rounded border-none bg-transparent text-[11px] text-muted-foreground cursor-pointer p-0 text-center focus:outline-none"
           title="切換列隊"
         >
           {ALL_ZONES.map((z) => (
@@ -121,10 +121,10 @@ export function TherapistCard({ therapist, index, currentZone, overlay, onRemove
       {/* Status toggle button */}
       <button
         onClick={cycleStatus}
-        className="flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] leading-none text-muted-foreground hover:bg-black/5 transition-colors"
+        className="flex items-center gap-1 px-1.5 py-1 rounded text-[11px] leading-none text-muted-foreground hover:bg-black/5 transition-colors"
         title="切換狀態"
       >
-        <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', STATUS_DOT[therapist.current_status])} />
+        <span className={cn('h-2.5 w-2.5 rounded-full shrink-0', STATUS_DOT[therapist.current_status])} />
         <span className="truncate">{STATUS_LABEL[therapist.current_status]}</span>
       </button>
 
@@ -132,10 +132,10 @@ export function TherapistCard({ therapist, index, currentZone, overlay, onRemove
       {onRemove && (
         <button
           onClick={goOffline}
-          className="w-full flex justify-center py-0.5 rounded-b-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+          className="w-full flex justify-center py-1 rounded-b-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
           title="離線"
         >
-          <X className="h-3 w-3" />
+          <X className="h-4 w-4" />
         </button>
       )}
     </div>
