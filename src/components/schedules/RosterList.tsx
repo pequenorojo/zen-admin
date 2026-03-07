@@ -8,10 +8,6 @@ const ATTENDANCE_STYLE: Record<AttendanceDisplayStatus, string> = {
   '下線':     'bg-orange-100 text-orange-700',
 }
 
-function formatTime(t: string) {
-  return t.slice(0, 5) // "09:00:00" → "09:00"
-}
-
 interface Props {
   therapists: RosterTherapist[]
   loading: boolean
@@ -23,7 +19,7 @@ export function RosterList({ therapists, loading }: Props) {
   }
 
   if (therapists.length === 0) {
-    return <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">今日無排班師傅</div>
+    return <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">無在職師傅</div>
   }
 
   return (
@@ -41,12 +37,9 @@ export function RosterList({ therapists, loading }: Props) {
           {t.gender && (
             <span className="text-xs text-muted-foreground">{t.gender}</span>
           )}
-          <span className="text-xs text-muted-foreground ml-auto shrink-0">
-            {formatTime(t.start_time)}–{formatTime(t.end_time)}
-          </span>
           <span
             className={cn(
-              'rounded-full px-2 py-0.5 text-xs font-medium shrink-0',
+              'rounded-full px-2 py-0.5 text-xs font-medium shrink-0 ml-auto',
               ATTENDANCE_STYLE[t.attendance_status],
             )}
           >

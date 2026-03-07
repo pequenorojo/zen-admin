@@ -1,25 +1,6 @@
 import type { CurrentStatus } from './therapist'
 
-// API response types
-export interface OnDutyTherapist {
-  schedule_id: string
-  therapist_id: string
-  day_of_week: number
-  start_time: string   // "09:00:00"
-  end_time: string     // "21:00:00"
-  therapist_name: string
-  employee_no: string | null
-  current_status: CurrentStatus
-  rank_score: number
-  gender: '男' | '女' | null
-}
-
-export interface OnDutyResponse {
-  date: string
-  day_of_week: number
-  therapists: OnDutyTherapist[]
-}
-
+// API response types (kept for future use)
 export interface AttendanceRecord {
   therapist_id: string
   name: string
@@ -52,8 +33,6 @@ export interface RosterTherapist {
   employee_no: string | null
   gender: '男' | '女' | null
   current_status: CurrentStatus
-  start_time: string
-  end_time: string
   attendance_status: AttendanceDisplayStatus
 }
 

@@ -3,9 +3,8 @@ import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import { useStore } from '@/context/StoreContext'
 import { apiFetch } from '@/lib/api'
+import type { Therapist } from '@/types/therapist'
 import type {
-  OnDutyResponse,
-  OnDutyTherapist,
   AttendanceRecord,
   QueuePosition,
   QueueZone,
@@ -22,11 +21,11 @@ type Positions = Record<QueueZone, string[]>
 
 function deriveAttendanceStatus(
   record: AttendanceRecord | undefined,
-  onDuty: OnDutyTherapist | undefined,
+  therapist: Therapist,
 ): AttendanceDisplayStatus {
   if (record?.check_in_at && record?.check_out_at) return '下線'
-  if (record?.check_in_at && onDuty?.current_status === 'OFFLINE') return '下線'
-  if (onDuty && onDuty.current_status !== 'OFFLINE') return '已出勤'
+  if (record?.check_in_at && therapist.current_status === 'OFFLINE') return '下線'
+  if (therapist.current_status !== 'OFFLINE') return '已出勤'
   return '尚未出勤'
 }
 
@@ -36,7 +35,7 @@ export function SchedulesPage() {
   const [loading, setLoading] = useState(true)
 
   // Raw API data
-  const [onDutyData, setOnDutyData] = useState<OnDutyResponse | null>(null)
+  const [therapists, setTherapists] = useState<Therapist[]>([])
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([])
   const [queuePositions, setQueuePositions] = useState<QueuePosition[]>([])
 
@@ -51,12 +50,13 @@ export function SchedulesPage() {
     if (!store) return
     setLoading(true)
     try {
-      const [onDutyRes, attendanceRes, queueRes] = await Promise.all([
-        apiFetch<OnDutyResponse>(`/api/schedules/on-duty?store_id=${store.id}&date=${dateStr}`),
+      const [therapistsRes, attendanceRes, queueRes] = await Promise.all([
+        apiFetch<Therapist[]>(`/api/therapists?store_id=${store.id}`),
         apiFetch<AttendanceRecord[]>(`/api/attendance/therapists?date=${dateStr}&store_id=${store.id}`),
         apiFetch<QueuePosition[]>(`/api/queue/positions?store_id=${store.id}`),
       ])
-      setOnDutyData(onDutyRes)
+      // Only active therapists — all are considered on-duty by default
+      setTherapists(therapistsRes.filter((t) => t.is_active))
       setAttendance(attendanceRes)
       setQueuePositions(queueRes)
     } catch (e) {
@@ -68,33 +68,31 @@ export function SchedulesPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // Build roster list
-  const roster = useMemo<RosterTherapist[]>(() => {
-    if (!onDutyData) return []
-    const attendanceMap = new Map(attendance.map((a) => [a.therapist_id, a]))
-    return onDutyData.therapists.map((t) => {
-      const record = attendanceMap.get(t.therapist_id)
-      return {
-        therapist_id: t.therapist_id,
-        therapist_name: t.therapist_name,
-        employee_no: t.employee_no,
-        gender: t.gender,
-        current_status: t.current_status,
-        start_time: t.start_time,
-        end_time: t.end_time,
-        attendance_status: deriveAttendanceStatus(record, t),
-      }
-    })
-  }, [onDutyData, attendance])
+  // Build roster list — all active therapists
+  const attendanceMap = useMemo(
+    () => new Map(attendance.map((a) => [a.therapist_id, a])),
+    [attendance],
+  )
+
+  const roster = useMemo<RosterTherapist[]>(
+    () => therapists.map((t) => ({
+      therapist_id: t.id,
+      therapist_name: t.name,
+      employee_no: t.employee_no,
+      gender: t.gender,
+      current_status: t.current_status,
+      attendance_status: deriveAttendanceStatus(attendanceMap.get(t.id), t),
+    })),
+    [therapists, attendanceMap],
+  )
 
   // Build therapist map for queue board
   const therapistMap = useMemo(() => {
     const map = new Map<string, QueueTherapistCard>()
-    if (!onDutyData) return map
-    for (const t of onDutyData.therapists) {
-      map.set(t.therapist_id, {
-        therapist_id: t.therapist_id,
-        therapist_name: t.therapist_name,
+    for (const t of therapists) {
+      map.set(t.id, {
+        therapist_id: t.id,
+        therapist_name: t.name,
         employee_no: t.employee_no,
         gender: t.gender,
         current_status: t.current_status,
@@ -102,7 +100,7 @@ export function SchedulesPage() {
       })
     }
     return map
-  }, [onDutyData])
+  }, [therapists])
 
   // Compute initial positions from API queue data
   useEffect(() => {
@@ -124,21 +122,18 @@ export function SchedulesPage() {
       newPositions[zone].sort((a, b) => (posMap.get(a) ?? 99) - (posMap.get(b) ?? 99))
     }
 
-    // Unassigned = on-duty + attended but not in any queue
-    const attendanceMap = new Map(attendance.map((a) => [a.therapist_id, a]))
+    // Unassigned = active therapists who are 已出勤 but not in any queue
     const unassignedIds: string[] = []
-    for (const [id] of therapistMap) {
-      if (assigned.has(id)) continue
-      const record = attendanceMap.get(id)
-      const onDuty = onDutyData?.therapists.find((t) => t.therapist_id === id)
-      const status = deriveAttendanceStatus(record, onDuty)
+    for (const t of therapists) {
+      if (assigned.has(t.id)) continue
+      const status = deriveAttendanceStatus(attendanceMap.get(t.id), t)
       if (status === '已出勤') {
-        unassignedIds.push(id)
+        unassignedIds.push(t.id)
       }
     }
     setPositions(newPositions)
     setUnassigned(unassignedIds)
-  }, [queuePositions, therapistMap, attendance, onDutyData])
+  }, [queuePositions, therapistMap, therapists, attendanceMap])
 
   // Summary counts
   const presentCount = roster.filter((t) => t.attendance_status === '已出勤').length
