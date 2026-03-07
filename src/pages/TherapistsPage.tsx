@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Therapist, CurrentStatus } from '@/types/therapist'
+import type { Therapist } from '@/types/therapist'
 import { apiFetch } from '@/lib/api'
 import { useStore } from '@/context/StoreContext'
 import { TherapistFilters } from '@/components/therapists/TherapistFilters'
@@ -14,10 +14,9 @@ export function TherapistsPage() {
   const [selected, setSelected] = useState<Therapist | null>(null)
 
   const [search, setSearch] = useState('')
-  const [selectedStatuses, setSelectedStatuses] = useState<Set<CurrentStatus>>(new Set())
   const [gender, setGender] = useState('all')
 
-  const hasActiveFilters = search !== '' || selectedStatuses.size > 0 || gender !== 'all'
+  const hasActiveFilters = search !== '' || gender !== 'all'
 
   const fetchTherapists = useCallback(async () => {
     if (!store) return
@@ -43,15 +42,6 @@ export function TherapistsPage() {
     }
   }, [therapists])
 
-  const handleToggleStatus = (s: CurrentStatus) => {
-    setSelectedStatuses((prev) => {
-      const next = new Set(prev)
-      if (next.has(s)) next.delete(s)
-      else next.add(s)
-      return next
-    })
-  }
-
   const filtered = useMemo(() => {
     let list = therapists
 
@@ -65,20 +55,15 @@ export function TherapistsPage() {
       )
     }
 
-    if (selectedStatuses.size > 0) {
-      list = list.filter((t) => selectedStatuses.has(t.current_status))
-    }
-
     if (gender !== 'all') {
       list = list.filter((t) => t.gender === gender)
     }
 
     return list
-  }, [therapists, search, selectedStatuses, gender])
+  }, [therapists, search, gender])
 
   const handleClear = () => {
     setSearch('')
-    setSelectedStatuses(new Set())
     setGender('all')
   }
 
@@ -100,8 +85,6 @@ export function TherapistsPage() {
         <TherapistFilters
           search={search}
           onSearchChange={setSearch}
-          selectedStatuses={selectedStatuses}
-          onToggleStatus={handleToggleStatus}
           gender={gender}
           onGenderChange={setGender}
           onClear={handleClear}

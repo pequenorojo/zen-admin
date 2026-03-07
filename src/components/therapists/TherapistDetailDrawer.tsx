@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
-import { X, Phone, Award, Star, Zap, Calendar, Clock, Timer } from 'lucide-react'
+import { X, Phone, Award, Star, Zap, Calendar, Timer } from 'lucide-react'
 import type { Therapist, TherapistAppointment } from '@/types/therapist'
 import { apiFetch } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { StatusLabel } from './StatusIndicator'
 import { TierBadge } from './TierBadge'
 
 function fmt(iso: string | null) {
@@ -59,7 +58,6 @@ export function TherapistDetailDrawer({ therapist: t, onClose }: Props) {
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-semibold">{t.name}</span>
                   {t.gender && <span className="text-sm text-muted-foreground">{t.gender}</span>}
-                  <StatusLabel status={t.current_status} />
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   {t.employee_no && <span>工號 {t.employee_no}</span>}
@@ -99,7 +97,6 @@ export function TherapistDetailDrawer({ therapist: t, onClose }: Props) {
               <StatCard icon={<Zap className="h-3.5 w-3.5" />} label="積分" value={`${t.therapist_points}`} />
               <StatCard icon={<Star className="h-3.5 w-3.5" />} label="評分" value={`${t.rating}`} />
               <StatCard icon={<Award className="h-3.5 w-3.5" />} label="總服務次數" value={`${t.total_sessions}`} />
-              <StatCard label="排位分數" value={`${t.rank_score.toFixed(2)}`} />
             </div>
           </div>
 

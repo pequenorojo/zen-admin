@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import {
   TooltipProvider, Tooltip, TooltipTrigger, TooltipContent,
 } from '@/components/ui/tooltip'
-import { StatusDot } from './StatusIndicator'
 import { TierBadge } from './TierBadge'
 
 const DAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
@@ -53,7 +52,6 @@ export function TherapistTable({ therapists, loading, onSelect }: Props) {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[50px] text-center">狀態</TableHead>
               <TableHead className="w-[100px]">姓名</TableHead>
               <TableHead className="w-[70px]">工號</TableHead>
               <TableHead className="w-[50px] text-center">性別</TableHead>
@@ -66,16 +64,12 @@ export function TherapistTable({ therapists, loading, onSelect }: Props) {
               <TableHead className="w-[60px] text-right">積分</TableHead>
               <TableHead className="w-[50px] text-right">評分</TableHead>
               <TableHead className="w-[60px] text-right">服務數</TableHead>
-              <TableHead className="w-[70px] text-right">排位</TableHead>
               <TableHead className="w-[50px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {therapists.map((t) => (
               <TableRow key={t.id} className="cursor-pointer" onClick={() => onSelect(t)}>
-                <TableCell className="text-center">
-                  <StatusDot status={t.current_status} />
-                </TableCell>
                 <TableCell className="font-medium">{t.name}</TableCell>
                 <TableCell className="tabular-nums text-muted-foreground">
                   {t.employee_no ?? '—'}
@@ -126,7 +120,6 @@ export function TherapistTable({ therapists, loading, onSelect }: Props) {
                 <TableCell className="text-right tabular-nums">{t.therapist_points}</TableCell>
                 <TableCell className="text-right tabular-nums">{t.rating}</TableCell>
                 <TableCell className="text-right tabular-nums">{t.total_sessions}</TableCell>
-                <TableCell className="text-right tabular-nums">{t.rank_score.toFixed(1)}</TableCell>
                 <TableCell>
                   <Button
                     variant="ghost" size="sm" className="h-8 w-8 p-0"

@@ -1,6 +1,5 @@
 import type { Therapist } from '@/types/therapist'
 import { cn } from '@/lib/utils'
-import { StatusDot } from './StatusIndicator'
 import { TierBadge } from './TierBadge'
 
 interface Props {
@@ -47,7 +46,6 @@ export function TherapistList({ therapists, loading, selectedId, onSelect }: Pro
               selectedId === t.id && 'bg-accent',
             )}
           >
-            <StatusDot status={t.current_status} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium truncate">{t.name}</span>
@@ -58,9 +56,6 @@ export function TherapistList({ therapists, loading, selectedId, onSelect }: Pro
                 {t.employee_no && `#${t.employee_no}`}
                 {todayTime ? ` · ${todayTime}` : ' · 今日休'}
               </p>
-            </div>
-            <div className="shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-              <p>排位 {t.rank_score.toFixed(1)}</p>
             </div>
           </div>
         )
