@@ -102,13 +102,13 @@ export function SchedulesPage() {
     return map
   }, [therapists])
 
-  // Compute initial positions from API queue data
+  // Compute initial positions from API queue data — only on API fetch
   useEffect(() => {
     const newPositions: Positions = { long: [], short: [], support: [], nail: [] }
 
     for (const qp of queuePositions) {
       const zone = qp.zone as QueueZone
-      if (ALL_ZONES.includes(zone) && therapistMap.has(qp.therapist_id)) {
+      if (ALL_ZONES.includes(zone)) {
         newPositions[zone].push(qp.therapist_id)
       }
     }
@@ -120,7 +120,8 @@ export function SchedulesPage() {
     }
 
     setPositions(newPositions)
-  }, [queuePositions, therapistMap])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queuePositions])
 
   // Handle assign/unassign from roster dropdown
   const handleAssign = (therapistId: string, zone: QueueZone | null) => {
