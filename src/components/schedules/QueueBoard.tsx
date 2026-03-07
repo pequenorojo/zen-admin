@@ -16,7 +16,6 @@ import type { QueueZone, QueueTherapistCard, QueuePosition } from '@/types/sched
 import { ALL_ZONES } from '@/types/schedule'
 import { QueueColumn } from './QueueColumn'
 import { TherapistCard } from './TherapistCard'
-import { StatusDot } from '@/components/therapists/StatusIndicator'
 import { apiFetch } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -52,7 +51,7 @@ function UnassignedPool({
       <div
         ref={setNodeRef}
         className={cn(
-          'flex items-center gap-2 overflow-x-auto rounded-lg border border-dashed bg-muted/20 p-3 min-h-[52px] scrollbar-thin',
+          'flex items-center gap-2 flex-wrap rounded-lg border border-dashed bg-muted/20 p-3 min-h-[52px]',
           isOver && 'ring-2 ring-primary/40 bg-primary/5',
         )}
       >
@@ -62,19 +61,9 @@ function UnassignedPool({
               所有已出勤師傅皆已分配
             </p>
           ) : (
-            ids.map((id) => {
+            ids.map((id, i) => {
               const t = therapistMap.get(id)
-              if (!t) return null
-              return (
-                <div
-                  key={id}
-                  className="flex items-center gap-1.5 rounded-lg border bg-white px-3 py-2 text-sm shadow-sm cursor-grab active:cursor-grabbing shrink-0"
-                >
-                  <StatusDot status={t.current_status} />
-                  <span className="font-medium whitespace-nowrap">{t.therapist_name}</span>
-                  {t.gender && <span className="text-xs text-muted-foreground">{t.gender}</span>}
-                </div>
-              )
+              return t ? <TherapistCard key={id} therapist={t} index={i} /> : null
             })
           )}
         </SortableContext>
