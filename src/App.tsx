@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { StoreProvider } from '@/context/StoreContext'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { BookingsPage } from '@/pages/BookingsPage'
 import { CustomersPage } from '@/pages/CustomersPage'
@@ -10,6 +11,7 @@ import { StoresPage } from '@/pages/StoresPage'
 export default function App() {
   return (
     <StoreProvider>
+      <TooltipProvider>
       <BrowserRouter>
         <Routes>
           <Route element={<AdminLayout />}>
@@ -25,6 +27,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/bookings" replace />} />
         </Routes>
       </BrowserRouter>
+      </TooltipProvider>
     </StoreProvider>
   )
 }

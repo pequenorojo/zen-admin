@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import { Phone, Award, Star, Zap, Calendar, Timer } from 'lucide-react'
-import type { Therapist, TherapistAppointment } from '@/types/therapist'
+import type { Therapist, TherapistAppointment, CurrentStatus } from '@/types/therapist'
 import { apiFetch } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import { Separator } from '@/components/ui/separator'
 import { StatusLabel } from './StatusIndicator'
 import { TierBadge } from './TierBadge'
@@ -18,13 +19,23 @@ function fmtDate(iso: string | null) {
   return format(new Date(iso), 'yyyy/MM/dd', { locale: zhTW })
 }
 
+const STATUS_OPTIONS: { value: CurrentStatus; label: string; dot: string }[] = [
+  { value: 'WHITE',   label: '待班中', dot: 'bg-gray-400' },
+  { value: 'YELLOW',  label: '等勞點', dot: 'bg-yellow-400' },
+  { value: 'GREEN',   label: '休息中', dot: 'bg-green-500' },
+  { value: 'RED',     label: '工作中', dot: 'bg-red-500' },
+  { value: 'OFFLINE', label: '下線',   dot: 'bg-gray-300' },
+]
+
 interface Props {
   therapist: Therapist
+  onStatusChanged?: () => void
 }
 
-export function TherapistDetailPanel({ therapist: t }: Props) {
+export function TherapistDetailPanel({ therapist: t, onStatusChanged }: Props) {
   const [appointments, setAppointments] = useState<TherapistAppointment[]>([])
   const [loading, setLoading] = useState(true)
+  const [switching, setSwitching] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -32,6 +43,23 @@ export function TherapistDetailPanel({ therapist: t }: Props) {
       .then(setAppointments)
       .finally(() => setLoading(false))
   }, [t.id])
+
+  const handleStatusChange = async (newStatus: CurrentStatus) => {
+    if (newStatus === t.current_status || switching) return
+    setSwitching(true)
+    try {
+      await apiFetch(`/api/therapists/${t.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_status: newStatus }),
+      })
+      onStatusChanged?.()
+    } catch (e) {
+      console.error('Failed to update status:', e)
+    } finally {
+      setSwitching(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -73,6 +101,41 @@ export function TherapistDetailPanel({ therapist: t }: Props) {
           <div className="rounded-md bg-muted/50 px-3 py-2 text-sm whitespace-pre-line">
             {t.bio}
           </div>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* Status Switcher */}
+      <div className="space-y-3">
+        <p className="text-sm font-medium">切換狀態</p>
+        <div className="flex flex-wrap gap-2">
+          {STATUS_OPTIONS.map(({ value, label, dot }) => {
+            const isActive = t.current_status === value
+            return (
+              <button
+                key={value}
+                type="button"
+                disabled={switching || isActive}
+                onClick={() => handleStatusChange(value)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'border-primary bg-primary/10 text-primary cursor-default'
+                    : 'border-border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  switching && !isActive && 'opacity-50 cursor-not-allowed',
+                )}
+              >
+                <span className={cn('h-2.5 w-2.5 rounded-full', dot)} />
+                {label}
+              </button>
+            )
+          })}
+        </div>
+        {t.status_updated_at && (
+          <p className="text-xs text-muted-foreground">
+            上次更新：{fmt(t.status_updated_at)}
+          </p>
         )}
       </div>
 

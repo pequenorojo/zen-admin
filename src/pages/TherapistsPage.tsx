@@ -14,10 +14,10 @@ export function TherapistsPage() {
   const [selected, setSelected] = useState<Therapist | null>(null)
 
   const [search, setSearch] = useState('')
-  const [currentStatus, setCurrentStatus] = useState<CurrentStatus | 'all'>('all')
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<CurrentStatus>>(new Set())
   const [gender, setGender] = useState('all')
 
-  const hasActiveFilters = search !== '' || currentStatus !== 'all' || gender !== 'all'
+  const hasActiveFilters = search !== '' || selectedStatuses.size > 0 || gender !== 'all'
 
   const fetchTherapists = useCallback(async () => {
     if (!store) return
@@ -35,6 +35,23 @@ export function TherapistsPage() {
 
   useEffect(() => { fetchTherapists() }, [fetchTherapists])
 
+  // When therapist list refreshes, update selected if still present
+  useEffect(() => {
+    if (selected) {
+      const updated = therapists.find((t) => t.id === selected.id)
+      if (updated) setSelected(updated)
+    }
+  }, [therapists])
+
+  const handleToggleStatus = (s: CurrentStatus) => {
+    setSelectedStatuses((prev) => {
+      const next = new Set(prev)
+      if (next.has(s)) next.delete(s)
+      else next.add(s)
+      return next
+    })
+  }
+
   const filtered = useMemo(() => {
     let list = therapists
 
@@ -48,8 +65,8 @@ export function TherapistsPage() {
       )
     }
 
-    if (currentStatus !== 'all') {
-      list = list.filter((t) => t.current_status === currentStatus)
+    if (selectedStatuses.size > 0) {
+      list = list.filter((t) => selectedStatuses.has(t.current_status))
     }
 
     if (gender !== 'all') {
@@ -57,12 +74,16 @@ export function TherapistsPage() {
     }
 
     return list
-  }, [therapists, search, currentStatus, gender])
+  }, [therapists, search, selectedStatuses, gender])
 
   const handleClear = () => {
     setSearch('')
-    setCurrentStatus('all')
+    setSelectedStatuses(new Set())
     setGender('all')
+  }
+
+  const handleStatusChanged = () => {
+    fetchTherapists()
   }
 
   return (
@@ -79,8 +100,8 @@ export function TherapistsPage() {
         <TherapistFilters
           search={search}
           onSearchChange={setSearch}
-          currentStatus={currentStatus}
-          onCurrentStatusChange={setCurrentStatus}
+          selectedStatuses={selectedStatuses}
+          onToggleStatus={handleToggleStatus}
           gender={gender}
           onGenderChange={setGender}
           onClear={handleClear}
@@ -110,7 +131,7 @@ export function TherapistsPage() {
         <div className="flex-1 overflow-y-auto">
           {selected ? (
             <div className="p-6">
-              <TherapistDetailPanel therapist={selected} />
+              <TherapistDetailPanel therapist={selected} onStatusChanged={handleStatusChanged} />
             </div>
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">
