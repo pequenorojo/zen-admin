@@ -7,6 +7,7 @@ import { CustomersPage } from '@/pages/CustomersPage'
 import { TherapistsPage } from '@/pages/TherapistsPage'
 import { LocationsPage } from '@/pages/LocationsPage'
 import { StoresPage } from '@/pages/StoresPage'
+import { SchedulesPage } from '@/pages/SchedulesPage'
 
 export default function App() {
   return (
@@ -20,7 +21,7 @@ export default function App() {
             <Route path="/therapists" element={<TherapistsPage />} />
             <Route path="/locations" element={<LocationsPage />} />
             <Route path="/stores" element={<StoresPage />} />
-            <Route path="/schedules" element={<Placeholder title="排班管理" />} />
+            <Route path="/schedules" element={<SchedulesPage />} />
             <Route path="/reports" element={<Placeholder title="數據報表" />} />
             <Route path="/settings" element={<Placeholder title="系統設定" />} />
           </Route>
