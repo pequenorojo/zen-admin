@@ -9,8 +9,8 @@ import { cn } from '@/lib/utils'
 const STATUS_BG: Record<CurrentStatus, string> = {
   WHITE:   'bg-white border-gray-200',
   YELLOW:  'bg-yellow-50 border-yellow-300',
-  GREEN:   'bg-green-50 border-green-300',
-  RED:     'bg-red-50 border-red-300',
+  GREEN:   'bg-green-50 border-green-300',       // 休息中
+  RED:     'bg-red-50 border-red-300',             // 工作中
   OFFLINE: 'bg-gray-100 border-gray-300 opacity-50',
 }
 
@@ -20,8 +20,8 @@ const STATUS_CYCLE: CurrentStatus[] = ['WHITE', 'YELLOW', 'GREEN', 'RED']
 const STATUS_LABEL: Record<CurrentStatus, string> = {
   WHITE:   '待班',
   YELLOW:  '等勞點',
-  GREEN:   '工作中',
-  RED:     '休息中',
+  GREEN:   '休息中',
+  RED:     '工作中',
   OFFLINE: '離線',
 }
 
