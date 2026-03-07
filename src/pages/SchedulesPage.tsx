@@ -50,20 +50,23 @@ export function SchedulesPage() {
     if (!store) return
     setLoading(true)
     try {
-      const [therapistsRes, attendanceRes, queueRes] = await Promise.all([
+      const [therapistsRes, attendanceRes] = await Promise.all([
         apiFetch<Therapist[]>(`/api/therapists?store_id=${store.id}`),
         apiFetch<AttendanceRecord[]>(`/api/attendance/therapists?date=${dateStr}&store_id=${store.id}`),
-        apiFetch<QueuePosition[]>(`/api/queue/positions?store_id=${store.id}`),
       ])
-      // Only active therapists — all are considered on-duty by default
       setTherapists(therapistsRes.filter((t) => t.is_active))
       setAttendance(attendanceRes)
-      setQueuePositions(queueRes)
     } catch (e) {
       console.error('Failed to fetch schedule data:', e)
-    } finally {
-      setLoading(false)
     }
+    // Queue positions fetched separately — may fail if table doesn't exist yet
+    try {
+      const queueRes = await apiFetch<QueuePosition[]>(`/api/queue/positions?store_id=${store.id}`)
+      setQueuePositions(Array.isArray(queueRes) ? queueRes : [])
+    } catch {
+      setQueuePositions([])
+    }
+    setLoading(false)
   }, [store, dateStr])
 
   useEffect(() => { fetchData() }, [fetchData])
