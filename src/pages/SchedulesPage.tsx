@@ -41,7 +41,6 @@ export function SchedulesPage() {
 
   // Positions state for drag & drop
   const [positions, setPositions] = useState<Positions>({ long: [], short: [], support: [], nail: [] })
-  const [unassigned, setUnassigned] = useState<string[]>([])
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd')
   const displayDate = format(selectedDate, 'M月d日 EEEE', { locale: zhTW })
@@ -71,12 +70,13 @@ export function SchedulesPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // Build roster list — all active therapists
+  // Build attendance map
   const attendanceMap = useMemo(
     () => new Map(attendance.map((a) => [a.therapist_id, a])),
     [attendance],
   )
 
+  // Build roster list
   const roster = useMemo<RosterTherapist[]>(
     () => therapists.map((t) => ({
       therapist_id: t.id,
@@ -108,13 +108,11 @@ export function SchedulesPage() {
   // Compute initial positions from API queue data
   useEffect(() => {
     const newPositions: Positions = { long: [], short: [], support: [], nail: [] }
-    const assigned = new Set<string>()
 
     for (const qp of queuePositions) {
       const zone = qp.zone as QueueZone
       if (ALL_ZONES.includes(zone) && therapistMap.has(qp.therapist_id)) {
         newPositions[zone].push(qp.therapist_id)
-        assigned.add(qp.therapist_id)
       }
     }
 
@@ -125,27 +123,58 @@ export function SchedulesPage() {
       newPositions[zone].sort((a, b) => (posMap.get(a) ?? 99) - (posMap.get(b) ?? 99))
     }
 
-    // Unassigned = active therapists who are 已出勤 but not in any queue
-    const unassignedIds: string[] = []
-    for (const t of therapists) {
-      if (assigned.has(t.id)) continue
-      const status = deriveAttendanceStatus(attendanceMap.get(t.id), t)
-      if (status === '已出勤') {
-        unassignedIds.push(t.id)
+    setPositions(newPositions)
+  }, [queuePositions, therapistMap])
+
+  // Compute assignments map: therapist_id → zone
+  const assignments = useMemo(() => {
+    const map = new Map<string, QueueZone>()
+    for (const zone of ALL_ZONES) {
+      for (const id of positions[zone]) {
+        map.set(id, zone)
       }
     }
+    return map
+  }, [positions])
+
+  // Handle assign/unassign from roster dropdown
+  const handleAssign = (therapistId: string, zone: QueueZone | null) => {
+    const newPositions: Positions = { long: [], short: [], support: [], nail: [] }
+    // Copy and remove from all zones
+    for (const z of ALL_ZONES) {
+      newPositions[z] = positions[z].filter((id) => id !== therapistId)
+    }
+    // Add to new zone (at end)
+    if (zone) {
+      newPositions[zone].push(therapistId)
+    }
     setPositions(newPositions)
-    setUnassigned(unassignedIds)
-  }, [queuePositions, therapistMap, therapists, attendanceMap])
+    // Save to backend
+    savePositions(newPositions)
+  }
+
+  const savePositions = async (pos: Positions) => {
+    if (!store) return
+    try {
+      const payload: QueuePosition[] = []
+      for (const zone of ALL_ZONES) {
+        pos[zone].forEach((id, i) => {
+          payload.push({ therapist_id: id, zone, position: i + 1 })
+        })
+      }
+      await apiFetch('/api/queue/positions', {
+        method: 'PUT',
+        body: JSON.stringify({ store_id: store.id, positions: payload }),
+      })
+    } catch (e) {
+      console.error('Failed to save queue positions:', e)
+    }
+  }
 
   // Summary counts
   const presentCount = roster.filter((t) => t.attendance_status === '已出勤').length
   const totalCount = roster.length
-
-  const handlePositionsChange = (p: Positions, u: string[]) => {
-    setPositions(p)
-    setUnassigned(u)
-  }
+  const assignedCount = assignments.size
 
   return (
     <div className="flex h-full flex-col">
@@ -156,16 +185,24 @@ export function SchedulesPage() {
         <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
           出勤 {presentCount}/{totalCount}
         </span>
+        <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+          已分配 {assignedCount}
+        </span>
       </div>
 
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left sidebar — Calendar + Roster */}
-        <div className="flex w-72 shrink-0 flex-col border-r">
+        <div className="flex w-80 shrink-0 flex-col border-r">
           <ScheduleCalendar selected={selectedDate} onSelect={setSelectedDate} />
           <div className="flex-1 overflow-hidden flex flex-col px-3 py-2">
             <h2 className="text-sm font-semibold mb-2">出勤名單</h2>
-            <RosterList therapists={roster} loading={loading} />
+            <RosterList
+              therapists={roster}
+              loading={loading}
+              assignments={assignments}
+              onAssign={handleAssign}
+            />
           </div>
         </div>
 
@@ -174,10 +211,9 @@ export function SchedulesPage() {
           {store ? (
             <QueueBoard
               positions={positions}
-              unassigned={unassigned}
               therapistMap={therapistMap}
               storeId={store.id}
-              onPositionsChange={handlePositionsChange}
+              onPositionsChange={setPositions}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">

@@ -9,9 +9,10 @@ interface Props {
   zone: QueueZone
   therapistIds: string[]
   therapistMap: Map<string, QueueTherapistCard>
+  onRemove: (therapistId: string) => void
 }
 
-export function QueueColumn({ zone, therapistIds, therapistMap }: Props) {
+export function QueueColumn({ zone, therapistIds, therapistMap, onRemove }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: zone })
 
   return (
@@ -35,12 +36,14 @@ export function QueueColumn({ zone, therapistIds, therapistMap }: Props) {
         <SortableContext items={therapistIds} strategy={horizontalListSortingStrategy}>
           {therapistIds.length === 0 ? (
             <p className="text-xs text-muted-foreground italic whitespace-nowrap">
-              拖放師傅到此區
+              從左側名單分配師傅到此區
             </p>
           ) : (
             therapistIds.map((id, i) => {
               const t = therapistMap.get(id)
-              return t ? <TherapistCard key={id} therapist={t} index={i} /> : null
+              return t ? (
+                <TherapistCard key={id} therapist={t} index={i} onRemove={onRemove} />
+              ) : null
             })
           )}
         </SortableContext>
