@@ -3,6 +3,7 @@ import type { DateRange } from 'react-day-picker'
 import { format } from 'date-fns'
 import type { Booking, BookingStatus } from '@/types/booking'
 import { apiFetch } from '@/lib/api'
+import { useSSE } from '@/hooks/useSSE'
 import { useStore } from '@/context/StoreContext'
 import { BookingFilters } from '@/components/bookings/BookingFilters'
 import { BookingList } from '@/components/bookings/BookingList'
@@ -42,6 +43,20 @@ export function BookingsPage() {
   }, [store, dateRange, status])
 
   useEffect(() => { fetchBookings() }, [fetchBookings])
+
+  // SSE — auto-refresh on appointment updates
+  const SSE_EVENTS = useMemo(() => ['appointment:updated'], [])
+  useSSE(SSE_EVENTS, fetchBookings)
+
+  // Keep selected booking in sync after re-fetch
+  useEffect(() => {
+    if (selected) {
+      const updated = bookings.find((b) => b.id === selected.id)
+      if (updated) setSelected(updated)
+      else setSelected(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookings])
 
   // client-side text search (name / phone)
   const filtered = useMemo(() => {
@@ -107,7 +122,7 @@ export function BookingsPage() {
         <div className="flex-1 overflow-y-auto">
           {selected ? (
             <div className="p-6">
-              <BookingDetailPanel booking={selected} />
+              <BookingDetailPanel booking={selected} onStatusChanged={fetchBookings} />
             </div>
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">
