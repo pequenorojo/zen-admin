@@ -1,9 +1,11 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { X, GripVertical } from 'lucide-react'
+import { format } from 'date-fns'
 import type { CurrentStatus } from '@/types/therapist'
 import type { QueueTherapistCard, QueueZone } from '@/types/schedule'
 import { ALL_ZONES, ZONE_LABELS } from '@/types/schedule'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 
 const STATUS_BG: Record<CurrentStatus, string> = {
@@ -127,6 +129,34 @@ export function TherapistCard({ therapist, index, currentZone, overlay, onRemove
         <span className={cn('h-2.5 w-2.5 rounded-full shrink-0', STATUS_DOT[therapist.current_status])} />
         <span className="truncate">{STATUS_LABEL[therapist.current_status]}</span>
       </button>
+
+      {/* Active appointment short code (RED status) */}
+      {therapist.current_status === 'RED' && therapist.current_appointment_id && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              className="px-1.5 py-0.5 rounded bg-red-200 text-red-800 text-[10px] font-mono font-bold hover:bg-red-300 transition-colors"
+              title="查看訂單"
+              onClick={(e) => e.stopPropagation()}
+            >
+              #{therapist.current_appointment_id.slice(0, 4)}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-3 text-xs" side="right" align="start">
+            <div className="space-y-1.5">
+              <p className="font-semibold text-sm">訂單摘要</p>
+              <p><span className="text-muted-foreground">客戶：</span>{therapist.current_customer_name ?? '—'}</p>
+              <p><span className="text-muted-foreground">服務：</span>{therapist.current_service_name ?? '—'}</p>
+              {therapist.current_scheduled_at && (
+                <p><span className="text-muted-foreground">時間：</span>{format(new Date(therapist.current_scheduled_at), 'HH:mm')}</p>
+              )}
+              {therapist.current_duration_min != null && (
+                <p><span className="text-muted-foreground">時長：</span>{therapist.current_duration_min} 分鐘</p>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
 
       {/* Offline / remove button */}
       {onRemove && (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Location, LocationType, LocationAvailabilityResponse, LocationAvailability, LocationStats } from '@/types/location'
+import type { LocationType, LocationAvailabilityResponse, LocationAvailability, LocationStats } from '@/types/location'
 import { apiFetch } from '@/lib/api'
+import { useSSE } from '@/hooks/useSSE'
 import { useStore } from '@/context/StoreContext'
 import { cn } from '@/lib/utils'
 import { LocationFilters } from '@/components/locations/LocationFilters'
@@ -43,6 +44,10 @@ export function LocationsPage() {
   }, [store])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // SSE — auto-refresh on appointment updates
+  const SSE_EVENTS = useMemo(() => ['appointment:updated'], [])
+  useSSE(SSE_EVENTS, fetchData)
 
   const statsMap = useMemo(() => {
     const m = new Map<string, LocationStats>()

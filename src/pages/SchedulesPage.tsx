@@ -3,7 +3,9 @@ import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import { useStore } from '@/context/StoreContext'
 import { apiFetch } from '@/lib/api'
+import { useSSE } from '@/hooks/useSSE'
 import type { Therapist, CurrentStatus } from '@/types/therapist'
+import type { Booking } from '@/types/booking'
 import type {
   AttendanceRecord,
   QueuePosition,
@@ -27,6 +29,7 @@ export function SchedulesPage() {
   const [therapists, setTherapists] = useState<Therapist[]>([])
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([])
   const [queuePositions, setQueuePositions] = useState<QueuePosition[]>([])
+  const [activeBookings, setActiveBookings] = useState<Booking[]>([])
 
   // Positions state for drag & drop
   const [positions, setPositions] = useState<Positions>({ long: [], short: [], support: [], nail: [] })
@@ -38,12 +41,14 @@ export function SchedulesPage() {
     if (!store) return
     setLoading(true)
     try {
-      const [therapistsRes, attendanceRes] = await Promise.all([
+      const [therapistsRes, attendanceRes, bookingsRes] = await Promise.all([
         apiFetch<Therapist[]>(`/api/therapists?store_id=${store.id}`),
         apiFetch<AttendanceRecord[]>(`/api/attendance/therapists?date=${dateStr}&store_id=${store.id}`),
+        apiFetch<Booking[]>(`/api/appointments?store_id=${store.id}&status=checked_in,in_progress&date_from=${dateStr}&date_to=${dateStr}`),
       ])
       setTherapists(therapistsRes.filter((t) => t.is_active))
       setAttendance(attendanceRes)
+      setActiveBookings(Array.isArray(bookingsRes) ? bookingsRes : [])
     } catch (e) {
       console.error('Failed to fetch schedule data:', e)
     }
@@ -55,6 +60,10 @@ export function SchedulesPage() {
     }
     setLoading(false)
   }, [store, dateStr])
+
+  // SSE — auto-refresh on appointment/therapist updates
+  const SSE_EVENTS = useMemo(() => ['appointment:updated', 'therapist:updated'], [])
+  useSSE(SSE_EVENTS, fetchData)
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -86,10 +95,20 @@ export function SchedulesPage() {
     [therapists, assignments],
   )
 
-  // Build therapist map for queue board
+  // Map active bookings by therapist_id
+  const activeBookingMap = useMemo(() => {
+    const map = new Map<string, Booking>()
+    for (const b of activeBookings) {
+      if (b.therapist_id) map.set(b.therapist_id, b)
+    }
+    return map
+  }, [activeBookings])
+
+  // Build therapist map for queue board (with active booking info)
   const therapistMap = useMemo(() => {
     const map = new Map<string, QueueTherapistCard>()
     for (const t of therapists) {
+      const booking = activeBookingMap.get(t.id)
       map.set(t.id, {
         therapist_id: t.id,
         therapist_name: t.name,
@@ -97,10 +116,17 @@ export function SchedulesPage() {
         gender: t.gender,
         current_status: t.current_status,
         rank_score: t.rank_score,
+        ...(booking && {
+          current_appointment_id: booking.id,
+          current_service_name: booking.service_name,
+          current_customer_name: booking.customer_name,
+          current_scheduled_at: booking.scheduled_at,
+          current_duration_min: booking.duration_min,
+        }),
       })
     }
     return map
-  }, [therapists])
+  }, [therapists, activeBookingMap])
 
   // Compute initial positions from API queue data — only on API fetch
   useEffect(() => {

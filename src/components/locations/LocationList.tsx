@@ -1,5 +1,7 @@
 import { Armchair, BedDouble } from 'lucide-react'
+import { format } from 'date-fns'
 import type { LocationAvailability } from '@/types/location'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -59,12 +61,42 @@ export function LocationList({ locations, loading, selectedId, onSelect }: Props
                   : '空閒'}
               </p>
             </div>
-            <span className={cn(
-              'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium',
-              busy ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700',
-            )}>
-              {busy ? '使用中' : '空閒'}
-            </span>
+            {busy && l.appt_id ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    使用中
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-3 text-xs" side="left" align="start">
+                  <div className="space-y-1.5">
+                    <p className="font-semibold text-sm">訂單摘要</p>
+                    <p><span className="text-muted-foreground">客戶：</span>{l.customer_name ?? '—'}</p>
+                    <p><span className="text-muted-foreground">服務：</span>{l.service_name ?? '—'}</p>
+                    <p><span className="text-muted-foreground">師傅：</span>{l.therapist_name ?? '—'}</p>
+                    {l.appt_scheduled_at && (
+                      <p><span className="text-muted-foreground">時間：</span>{format(new Date(l.appt_scheduled_at), 'HH:mm')}</p>
+                    )}
+                    {l.appt_duration_min != null && (
+                      <p><span className="text-muted-foreground">時長：</span>{l.appt_duration_min} 分鐘</p>
+                    )}
+                    {l.next_free_at && (
+                      <p><span className="text-muted-foreground">預計空出：</span>{format(new Date(l.next_free_at), 'HH:mm')}</p>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <span className={cn(
+                'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium',
+                busy ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700',
+              )}>
+                {busy ? '使用中' : '空閒'}
+              </span>
+            )}
           </div>
         )
       })}

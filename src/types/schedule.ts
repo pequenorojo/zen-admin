@@ -43,4 +43,9 @@ export interface QueueTherapistCard {
   gender: '男' | '女' | null
   current_status: CurrentStatus
   rank_score: number
+  current_appointment_id?: string
+  current_service_name?: string
+  current_customer_name?: string
+  current_scheduled_at?: string
+  current_duration_min?: number
 }
