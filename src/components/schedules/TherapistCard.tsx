@@ -13,13 +13,7 @@ const STATUS_BG: Record<CurrentStatus, string> = {
   OFFLINE: 'bg-gray-100 border-gray-300 opacity-50',
 }
 
-const STATUS_OPTIONS: { value: CurrentStatus; label: string }[] = [
-  { value: 'WHITE',   label: '待班' },
-  { value: 'YELLOW',  label: '等勞點' },
-  { value: 'GREEN',   label: '休息中' },
-  { value: 'RED',     label: '工作中' },
-  { value: 'OFFLINE', label: '離線' },
-]
+const STATUS_CYCLE: CurrentStatus[] = ['WHITE', 'YELLOW', 'GREEN', 'RED', 'OFFLINE']
 
 const GENDER_COLOR: Record<string, string> = {
   '男': 'text-blue-600',
@@ -51,58 +45,46 @@ export function TherapistCard({ therapist, index, overlay, onRemove, onStatusCha
 
   const genderColor = therapist.gender ? GENDER_COLOR[therapist.gender] ?? 'text-gray-600' : 'text-gray-600'
 
+  const cycleStatus = () => {
+    if (!onStatusChange) return
+    const i = STATUS_CYCLE.indexOf(therapist.current_status)
+    const next = STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length]
+    onStatusChange(therapist.therapist_id, next)
+  }
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        'flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-sm shadow-sm shrink-0 group',
+        'flex items-center gap-1 rounded-md border px-1.5 py-1 shadow-sm shrink-0 group',
         STATUS_BG[therapist.current_status],
         isDragging && 'opacity-40',
         overlay && 'shadow-lg ring-2 ring-primary/30',
       )}
     >
-      {/* Drag handle */}
       <span
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground text-xs"
+        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground text-[10px] leading-none"
         title="拖拉排序"
       >
         ⠿
       </span>
-
-      {/* Index */}
-      <span className="text-[10px] text-muted-foreground font-mono w-4 text-right shrink-0">
-        {index + 1}
-      </span>
-
-      {/* Employee number with gender color */}
-      <span className={cn('font-bold text-xs shrink-0', genderColor)}>
+      <span
+        onClick={cycleStatus}
+        className={cn('font-bold text-xs cursor-pointer select-none', genderColor)}
+        title="點擊切換狀態"
+      >
         {therapist.employee_no ?? '—'}
       </span>
-
-      {/* Status selector */}
-      {onStatusChange && (
-        <select
-          value={therapist.current_status}
-          onChange={(e) => onStatusChange(therapist.therapist_id, e.target.value as CurrentStatus)}
-          className="h-5 rounded border-none bg-transparent px-0 text-[10px] cursor-pointer focus:ring-1 focus:ring-primary focus:outline-none"
-        >
-          {STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-      )}
-
-      {/* Remove button */}
       {onRemove && (
         <button
           onClick={() => onRemove(therapist.therapist_id)}
           className="rounded p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-opacity"
           title="移除"
         >
-          <X className="h-3 w-3" />
+          <X className="h-2.5 w-2.5" />
         </button>
       )}
     </div>
