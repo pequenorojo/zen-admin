@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -29,16 +29,25 @@ interface Props {
   onStatusChange: (therapistId: string, status: CurrentStatus) => void
 }
 
-export function QueueBoard({ positions, therapistMap, storeId, onPositionsChange, onRemove, onStatusChange }: Props) {
-  // Local positions during drag to avoid parent re-render
-  const [localPositions, setLocalPositions] = useState<Positions>(positions)
-  const isDragging = useRef(false)
+// Pure function — no closure dependency
+function findZoneIn(pos: Positions, id: string): QueueZone | null {
+  if (ALL_ZONES.includes(id as QueueZone)) return id as QueueZone
+  for (const zone of ALL_ZONES) {
+    if (pos[zone].includes(id)) return zone
+  }
+  return null
+}
 
-  // Sync from parent when not dragging
+function clonePositions(pos: Positions): Positions {
+  return { long: [...pos.long], short: [...pos.short], support: [...pos.support], nail: [...pos.nail] }
+}
+
+export function QueueBoard({ positions, therapistMap, storeId, onPositionsChange, onRemove, onStatusChange }: Props) {
+  const [localPositions, setLocalPositions] = useState<Positions>(positions)
+  const draggingRef = useRef(false)
+
   useEffect(() => {
-    if (!isDragging.current) {
-      setLocalPositions(positions)
-    }
+    if (!draggingRef.current) setLocalPositions(positions)
   }, [positions])
 
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -48,44 +57,27 @@ export function QueueBoard({ positions, therapistMap, storeId, onPositionsChange
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )
 
-  const findZone = useCallback(
-    (id: string): QueueZone | null => {
-      if (ALL_ZONES.includes(id as QueueZone)) return id as QueueZone
-      for (const zone of ALL_ZONES) {
-        if (localPositions[zone].includes(id)) return zone
-      }
-      return null
-    },
-    [localPositions],
-  )
-
   const handleDragStart = (event: DragStartEvent) => {
-    isDragging.current = true
+    draggingRef.current = true
     setActiveId(event.active.id as string)
   }
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event
-    if (!over) return
+    if (!over || active.id === over.id) return
 
-    const activeZone = findZone(active.id as string)
-    const overZone = findZone(over.id as string)
-
-    if (!activeZone || !overZone || activeZone === overZone) return
-
-    // Cross-zone move — update local state only
     setLocalPositions((prev) => {
-      const next: Positions = {
-        long: [...prev.long],
-        short: [...prev.short],
-        support: [...prev.support],
-        nail: [...prev.nail],
-      }
+      const activeZone = findZoneIn(prev, active.id as string)
+      const overZone = findZoneIn(prev, over.id as string)
+
+      if (!activeZone || !overZone || activeZone === overZone) return prev
+
+      const next = clonePositions(prev)
 
       // Remove from source
       next[activeZone] = next[activeZone].filter((id) => id !== active.id)
 
-      // Insert at position in target
+      // Insert at target position
       const overIndex = next[overZone].indexOf(over.id as string)
       if (overIndex >= 0) {
         next[overZone].splice(overIndex, 0, active.id as string)
@@ -99,34 +91,39 @@ export function QueueBoard({ positions, therapistMap, storeId, onPositionsChange
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
-    isDragging.current = false
+    draggingRef.current = false
     setActiveId(null)
 
     if (!over || active.id === over.id) {
-      // No move — sync local back to parent
       onPositionsChange(localPositions)
       return
     }
 
-    let finalPositions = localPositions
+    // Use functional update for same-zone reorder
+    setLocalPositions((prev) => {
+      const activeZone = findZoneIn(prev, active.id as string)
+      const overZone = findZoneIn(prev, over.id as string)
 
-    // Check for same-zone reorder
-    const activeZone = findZone(active.id as string)
-    const overZone = findZone(over.id as string)
-
-    if (activeZone && overZone && activeZone === overZone) {
-      const items = [...localPositions[activeZone]]
-      const oldIndex = items.indexOf(active.id as string)
-      const newIndex = items.indexOf(over.id as string)
-      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-        finalPositions = { ...localPositions, [activeZone]: arrayMove(items, oldIndex, newIndex) }
+      if (activeZone && overZone && activeZone === overZone) {
+        const items = [...prev[activeZone]]
+        const oldIndex = items.indexOf(active.id as string)
+        const newIndex = items.indexOf(over.id as string)
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          return { ...prev, [activeZone]: arrayMove(items, oldIndex, newIndex) }
+        }
       }
-    }
+      return prev
+    })
 
-    // Sync to parent and save
-    setLocalPositions(finalPositions)
-    onPositionsChange(finalPositions)
-    await savePositions(finalPositions)
+    // Read latest state after update and sync
+    // Use setTimeout to ensure state is committed
+    setTimeout(() => {
+      setLocalPositions((final) => {
+        onPositionsChange(final)
+        savePositions(final)
+        return final
+      })
+    }, 0)
   }
 
   const savePositions = async (pos: Positions) => {
