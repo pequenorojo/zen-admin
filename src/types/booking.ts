@@ -23,4 +23,7 @@ export interface Booking {
   service_price: number
   seat1_type?: 'chair' | 'bed' | null
   is_combo?: boolean
+  actual_check_in_time?: string | null
+  scheduled_start_time?: string | null
+  estimated_end_time?: string | null
 }

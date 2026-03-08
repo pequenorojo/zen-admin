@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import {
   Calendar, Clock, User, Phone, UserCog, Stethoscope,
-  DollarSign, FileText, Hash, Tag, Loader2,
+  DollarSign, FileText, Hash, Tag, Loader2, AlertTriangle,
 } from 'lucide-react'
 import type { Booking, BookingStatus } from '@/types/booking'
 import { apiFetch } from '@/lib/api'
@@ -106,6 +106,19 @@ export function BookingDetailPanel({ booking: b, storeId, onStatusChanged }: Pro
         />
         <DetailRow icon={<Hash className="h-4 w-4" />} label="人數序號" value={`第 ${b.person_index + 1} 位`} />
       </div>
+
+      {/* Time Tracking Timeline */}
+      {b.actual_check_in_time && b.scheduled_start_time && b.estimated_end_time && (
+        <>
+          <Separator />
+          <ServiceTimeline
+            actualCheckIn={b.actual_check_in_time}
+            scheduledStart={b.scheduled_start_time}
+            estimatedEnd={b.estimated_end_time}
+            status={b.status}
+          />
+        </>
+      )}
 
       {b.notes && (
         <>
@@ -228,6 +241,133 @@ function DetailRow({ icon, label, value, sub }: {
       </div>
       <p className="text-sm font-medium">{value}</p>
       {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+    </div>
+  )
+}
+
+// ── 服務時間軸 ──────────────────────────────────────────────────────────────
+function fmtTime(iso: string) {
+  return format(new Date(iso), 'HH:mm')
+}
+
+function ServiceTimeline({ actualCheckIn, scheduledStart, estimatedEnd, status }: {
+  actualCheckIn: string
+  scheduledStart: string
+  estimatedEnd: string
+  status: BookingStatus
+}) {
+  const [now, setNow] = useState(Date.now())
+
+  // Live tick every 30s for overtime detection (only for active statuses)
+  const isActive = status === 'checked_in' || status === 'in_progress'
+  useEffect(() => {
+    if (!isActive) return
+    const timer = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(timer)
+  }, [isActive])
+
+  const checkInTs = new Date(actualCheckIn).getTime()
+  const startTs = new Date(scheduledStart).getTime()
+  const endTs = new Date(estimatedEnd).getTime()
+
+  const isLate = checkInTs > startTs + 60_000 // 1 min tolerance
+  const isEarly = checkInTs < startTs - 60_000
+  const overtimeMin = isActive ? Math.max(0, Math.round((now - endTs) / 60_000)) : 0
+  const isOvertime = overtimeMin > 0
+  const isSevereOvertime = overtimeMin > 15
+
+  // Remaining service duration if late
+  const fullDuration = Math.round((endTs - startTs) / 60_000)
+  const effectiveDuration = isLate
+    ? Math.max(0, Math.round((endTs - checkInTs) / 60_000))
+    : fullDuration
+
+  // Progress bar (0-100) for active statuses
+  const totalSpan = endTs - startTs
+  const elapsed = now - startTs
+  const progress = isActive ? Math.min(100, Math.max(0, Math.round((elapsed / totalSpan) * 100))) : (status === 'completed' ? 100 : 0)
+
+  const progressColor = isSevereOvertime
+    ? 'bg-red-500'
+    : isOvertime
+      ? 'bg-orange-500'
+      : 'bg-emerald-500'
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <Clock className="h-4 w-4" />
+        服務時間軸
+      </div>
+
+      {/* Timeline bar */}
+      <div className="space-y-1">
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span>{fmtTime(scheduledStart)}</span>
+          <span>{fmtTime(estimatedEnd)}</span>
+        </div>
+        <div className="relative h-2 rounded-full bg-muted overflow-hidden">
+          <div
+            className={`absolute inset-y-0 left-0 rounded-full transition-all ${progressColor}`}
+            style={{ width: `${Math.min(progress, 100)}%` }}
+          />
+          {/* Check-in marker */}
+          {isLate && (
+            <div
+              className="absolute top-0 h-full w-0.5 bg-amber-500"
+              style={{ left: `${Math.min(100, Math.max(0, ((checkInTs - startTs) / totalSpan) * 100))}%` }}
+              title={`報到 ${fmtTime(actualCheckIn)}`}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* 3 time points */}
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="space-y-0.5">
+          <p className="text-[10px] text-muted-foreground">報到時間</p>
+          <p className={`text-xs font-medium ${isLate ? 'text-amber-600' : ''}`}>
+            {fmtTime(actualCheckIn)}
+          </p>
+        </div>
+        <div className="space-y-0.5">
+          <p className="text-[10px] text-muted-foreground">排定開始</p>
+          <p className="text-xs font-medium">{fmtTime(scheduledStart)}</p>
+        </div>
+        <div className="space-y-0.5">
+          <p className="text-[10px] text-muted-foreground">預計結束</p>
+          <p className={`text-xs font-medium ${isOvertime ? (isSevereOvertime ? 'text-red-600' : 'text-orange-600') : ''}`}>
+            {fmtTime(estimatedEnd)}
+          </p>
+        </div>
+      </div>
+
+      {/* Status tags */}
+      <div className="flex flex-wrap gap-1.5">
+        {isEarly && (
+          <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+            早到 {Math.round((startTs - checkInTs) / 60_000)} 分鐘
+          </span>
+        )}
+        {isLate && (
+          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+            遲到 {Math.round((checkInTs - startTs) / 60_000)} 分鐘
+          </span>
+        )}
+        {isLate && effectiveDuration < fullDuration && (
+          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+            可用時長 {effectiveDuration}/{fullDuration} 分鐘
+          </span>
+        )}
+        {isOvertime && (
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            isSevereOvertime ? 'bg-red-50 text-red-700' : 'bg-orange-50 text-orange-700'
+          }`}>
+            <AlertTriangle className="h-3 w-3" />
+            超時 {overtimeMin} 分鐘
+          </span>
+        )}
+      </div>
     </div>
   )
 }
