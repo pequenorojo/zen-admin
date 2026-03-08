@@ -122,7 +122,7 @@ export function BookingsPage() {
         <div className="flex-1 overflow-y-auto">
           {selected ? (
             <div className="p-6">
-              <BookingDetailPanel booking={selected} onStatusChanged={fetchBookings} />
+              <BookingDetailPanel booking={selected} storeId={store!.id} onStatusChanged={fetchBookings} />
             </div>
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">

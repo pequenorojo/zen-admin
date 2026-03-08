@@ -10,6 +10,9 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       ...init?.headers,
     },
   })
-  if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.error || (body?.details && body.details.join('；')) || `API ${res.status}: ${res.statusText}`)
+  }
   return res.json()
 }

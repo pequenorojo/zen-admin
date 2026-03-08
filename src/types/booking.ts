@@ -21,4 +21,6 @@ export interface Booking {
   therapist_name: string | null
   service_name: string
   service_price: number
+  seat1_type?: 'chair' | 'bed' | null
+  is_combo?: boolean
 }

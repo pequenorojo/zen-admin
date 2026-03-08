@@ -10,6 +10,7 @@ import { apiFetch } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { StatusBadge } from './StatusBadge'
+import { CheckinForm } from './CheckinForm'
 
 function fmt(iso: string) {
   return format(new Date(iso), 'yyyy/MM/dd (EEEE) HH:mm', { locale: zhTW })
@@ -45,23 +46,24 @@ function getActions(status: BookingStatus): StatusAction[] {
 
 interface Props {
   booking: Booking
+  storeId: string
   onStatusChanged?: () => void
 }
 
-export function BookingDetailPanel({ booking: b, onStatusChanged }: Props) {
+export function BookingDetailPanel({ booking: b, storeId, onStatusChanged }: Props) {
   const [confirming, setConfirming] = useState<BookingStatus | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
 
   const actions = getActions(b.status)
 
-  const handleAction = async (targetStatus: BookingStatus) => {
+  const handleAction = async (targetStatus: BookingStatus, overrides?: { therapist_id?: string; location_id?: string }) => {
     setSubmitting(true)
     setActionError(null)
     try {
       await apiFetch(`/api/appointments/${b.id}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: targetStatus }),
+        body: JSON.stringify({ status: targetStatus, ...overrides }),
       })
       setConfirming(null)
       onStatusChanged?.()
@@ -157,7 +159,16 @@ export function BookingDetailPanel({ booking: b, onStatusChanged }: Props) {
             )}
 
             {/* Confirmation prompt */}
-            {confirming ? (
+            {confirming === 'checked_in' ? (
+              <CheckinForm
+                booking={b}
+                storeId={storeId}
+                onSubmit={(overrides) => handleAction('checked_in', overrides)}
+                onCancel={() => { setConfirming(null); setActionError(null) }}
+                submitting={submitting}
+                error={actionError}
+              />
+            ) : confirming ? (
               <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
                 <p className="text-sm font-medium">
                   {actions.find((a) => a.targetStatus === confirming)?.confirmMessage}
